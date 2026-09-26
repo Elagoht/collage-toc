@@ -1,0 +1,69 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Elagoht/collage-snippets-highlighter/main/schemas/collage-plugin-manifest.schema.json",
+  "name": "elagoht/toc",
+  "description": "A collage plugin that gives a page's headings ids, and puts a table of contents and a reading time where the templates ask for them.",
+  "repository": "https://github.com/Elagoht/collage-toc",
+  "templateFunctions": [
+    {
+      "name": "toc",
+      "signature": "toc",
+      "insert": "toc",
+      "doc": "A table of contents of the page's h2–h4 headings, as a nested `<nav><ol>`."
+    },
+    {
+      "name": "readingTime",
+      "signature": "readingTime",
+      "insert": "readingTime",
+      "doc": "\"N min read\" for the page's text."
+    }
+  ],
+  "snippets": {
+    "collage-toc": {
+      "language": "html",
+      "prefix": "ctoc",
+      "body": [
+        "<p>{{readingTime}}</p>",
+        "{{toc}}"
+      ],
+      "description": "collage-toc: a table of contents and the reading time"
+    }
+  },
+  "config": {
+    "type": "object",
+    "description": "A collage plugin that gives a page's headings ids, and puts a table of contents and a reading time where the templates ask for them.",
+    "properties": {
+      "ids": {
+        "type": "boolean",
+        "description": "IDs gives headings ids on every page, not only on those with a placeholder, so any heading can be linked to. On by default."
+      },
+      "locales": {
+        "type": "object",
+        "description": "Locales replaces Text for a locale: {\"tr\": {Label: \"İçindekiler\", ReadingTime: \"{n} dk okuma\"}}. A field left empty keeps Text's.",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Label names the table of contents to assistive technology: the <nav>'s aria-label. Default \"Table of contents\"."
+            },
+            "readingTime": {
+              "type": "string",
+              "description": "ReadingTime is the reading time, \"{n}\" standing for the minutes. Default \"{n} min read\"."
+            }
+          }
+        }
+      },
+      "maxLevel": {
+        "type": "integer"
+      },
+      "minLevel": {
+        "type": "integer",
+        "description": "MinLevel and MaxLevel are the heading levels read. Default 2 and 4: the h1 is the page's title, and below h4 a table of contents is a list of everything."
+      },
+      "wpm": {
+        "type": "integer",
+        "description": "WPM is the reading speed, in words a minute. Default 225."
+      }
+    }
+  }
+}
