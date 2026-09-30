@@ -44,13 +44,14 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "Label names the table of contents to assistive technology: the <nav>'s aria-label. Default \"Table of contents\"."
+              "description": "Label names the table of contents to assistive technology: the \u003cnav\u003e's aria-label. Default \"Table of contents\"."
             },
             "readingTime": {
               "type": "string",
               "description": "ReadingTime is the reading time, \"{n}\" standing for the minutes. Default \"{n} min read\"."
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "maxLevel": {
@@ -64,6 +65,7 @@
         "type": "integer",
         "description": "WPM is the reading speed, in words a minute. Default 225."
       }
-    }
+    },
+    "additionalProperties": false
   }
 }
