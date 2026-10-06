@@ -25,7 +25,7 @@ func newSite(opts toc.Options, body string, data map[string]string) (*collage.Ap
 		return nil, err
 	}
 	page := collage.NewPage("p").
-		WithContent(collage.NewFragment("p", "p.html").WithData(data).Build()).
+		WithContent(collage.NewFragment("p", "p.html").WithData(collage.Value(data)).Build()).
 		WithPath("en", "/").
 		WithPath("tr", "/").
 		Build()
