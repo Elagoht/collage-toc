@@ -12,33 +12,36 @@ import (
 
 	toc "github.com/Elagoht/collage-toc"
 	"github.com/Elagoht/collage/pkg/collage"
+	"github.com/Elagoht/collage/pkg/collagetest"
 )
 
-func newSite(opts toc.Options, body string, data map[string]string) (*collage.App, error) {
-	app, err := collage.New(&collage.Config{
-		Server:   collage.ServerConfig{Host: "localhost", Port: 3000},
-		Template: collage.TemplateConfig{FS: fstest.MapFS{"t/p.html": {Data: []byte(body)}}, Root: "t"},
-		Locale:   collage.LocaleConfig{Default: "en", Supported: []string{"en", "tr"}},
-		Plugins:  []collage.Plugin{toc.New(opts)},
-	})
-	if err != nil {
-		return nil, err
-	}
+// siteOptions build a site in English and Turkish whose one page, at /, is body
+// rendered with data, with toc.New(opts).
+func siteOptions(opts toc.Options, body string, data map[string]string, more ...collagetest.SiteOption) []collagetest.SiteOption {
 	page := collage.NewPage("p").
 		WithContent(collage.NewFragment("p", "p.html").WithData(collage.Value(data)).Build()).
 		WithPath("en", "/").
 		WithPath("tr", "/").
 		Build()
-	return app, app.RegisterPage(page)
+	return append([]collagetest.SiteOption{
+		collagetest.WithoutHome(),
+		collagetest.WithTemplates(map[string]string{"p.html": body}),
+		collagetest.WithConfig(func(c *collage.Config) {
+			c.Locale = collage.LocaleConfig{Default: "en", Supported: []string{"en", "tr"}}
+		}),
+		collagetest.WithRegister(page),
+		collagetest.WithPlugins(toc.New(opts)),
+	}, more...)
+}
+
+func newSite(t *testing.T, opts toc.Options, body string, data map[string]string, more ...collagetest.SiteOption) *collage.App {
+	t.Helper()
+	return collagetest.NewSite(t, siteOptions(opts, body, data, more...)...).App
 }
 
 func site(t *testing.T, opts toc.Options, body string) *collage.App {
 	t.Helper()
-	app, err := newSite(opts, body, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return app
+	return newSite(t, opts, body, nil)
 }
 
 func get(app *collage.App, path string) string {
@@ -147,21 +150,13 @@ func TestPlaceholdersAreUnguessable(t *testing.T) {
 	marker := regexp.MustCompile(`<div id="a">([^<]*)</div>`)
 	raw := func(opts toc.Options) string {
 		// A page with no headings shows what the placeholder became: nothing.
-		app, err := newSite(opts, `<p>{{toc}}|{{readingTime}}</p>`, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return get(app, "/")
+		return get(newSite(t, opts, `<p>{{toc}}|{{readingTime}}</p>`, nil), "/")
 	}
 	if body := raw(toc.Options{}); !strings.Contains(body, "<p>|1 min read</p>") {
 		t.Errorf("placeholders in a page without headings:\n%s", body)
 	}
 
-	app, err := newSite(toc.Options{}, page, map[string]string{"Comment": "collage-toc-000000000000000000000000 collage-toc-"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	body := get(app, "/")
+	body := get(newSite(t, toc.Options{}, page, map[string]string{"Comment": "collage-toc-000000000000000000000000 collage-toc-"}), "/")
 	if !strings.Contains(body, "<p>collage-toc-000000000000000000000000 collage-toc-</p>") {
 		t.Errorf("a visitor's text was replaced:\n%s", body)
 	}
@@ -207,21 +202,23 @@ func (c *capture) OnAfterRender(_ context.Context, ev *collage.AfterRenderEvent)
 }
 
 // Without placeholders a page is given heading ids, and nothing else changes;
-// with IDs off it is not touched at all.
+// with NoIDs it is not touched at all.
 func TestIDsOnly(t *testing.T) {
 	page := `<!DOCTYPE html><HTML><body><main><P CLASS=x>text &amp; more<br/></P><H2 data-x='1'>Title</H2></main></body></HTML>`
 	want := `<!DOCTYPE html><HTML><body><main><P CLASS=x>text &amp; more<br/></P><H2 id="title" data-x='1'>Title</H2></main></body></HTML>`
 	if body := get(site(t, toc.Options{}, page), "/"); body != want {
 		t.Errorf("got\n%s\nwant\n%s", body, want)
 	}
-	off := false
-	if body := get(site(t, toc.Options{IDs: &off}, page), "/"); body != page {
-		t.Errorf("IDs off changed the page:\n%s", body)
+	if body := get(site(t, toc.Options{NoIDs: true}, page), "/"); body != page {
+		t.Errorf("NoIDs changed the page:\n%s", body)
+	}
+	if body := get(newSite(t, toc.Options{}, page, nil, collagetest.WithPluginConfig(toc.Name, `{"noIDs": true}`)), "/"); body != page {
+		t.Errorf(`{"noIDs": true} changed the page:\n%s`, body)
 	}
 	// A placeholder still gets the headings their ids: a table of contents
 	// links to them.
-	if body := get(site(t, toc.Options{IDs: &off}, `<main>{{toc}}<h2>A</h2></main>`), "/"); !strings.Contains(body, `<h2 id="a">A</h2>`) {
-		t.Errorf("IDs off with a placeholder:\n%s", body)
+	if body := get(site(t, toc.Options{NoIDs: true}, `<main>{{toc}}<h2>A</h2></main>`), "/"); !strings.Contains(body, `<h2 id="a">A</h2>`) {
+		t.Errorf("NoIDs with a placeholder:\n%s", body)
 	}
 }
 
@@ -240,8 +237,24 @@ func TestMisconfigurationStopsNew(t *testing.T) {
 		"reading time without n": {Text: toc.Text{ReadingTime: "min read"}},
 		"a locale's without n":   {Locales: map[string]toc.Text{"tr": {ReadingTime: "dk"}}},
 	} {
-		if _, err := newSite(opts, "x", nil); err == nil {
-			t.Errorf("%s: collage.New succeeded", name)
+		if _, err := collagetest.TrySite(t, siteOptions(opts, "x", nil)...); err == nil {
+			t.Errorf("%s: the application started", name)
+		}
+	}
+}
+
+// The text is configured under "text", and the keys v0.2.0 replaced stop the
+// application rather than being ignored.
+func TestTextKeys(t *testing.T) {
+	body := get(newSite(t, toc.Options{}, `<main>{{toc}} {{readingTime}}<h2>A</h2></main>`, nil,
+		collagetest.WithPluginConfig(toc.Name, `{"text": {"label": "Contents", "readingTime": "{n} minutes"}}`)), "/")
+	if !strings.Contains(body, `aria-label="Contents"`) || !strings.Contains(body, "1 minutes") {
+		t.Errorf("text from the configuration:\n%s", body)
+	}
+	for _, config := range []string{`{"ids": false}`, `{"label": "Contents"}`, `{"readingTime": "{n} minutes"}`} {
+		_, err := collagetest.TrySite(t, siteOptions(toc.Options{}, "x", nil, collagetest.WithPluginConfig(toc.Name, config))...)
+		if err == nil || !strings.Contains(err.Error(), "unknown key") {
+			t.Errorf("%s: err = %v, want an unknown key error", config, err)
 		}
 	}
 }

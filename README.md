@@ -9,7 +9,7 @@ app, err := collage.New(&collage.Config{
 })
 ```
 
-Requires collage v0.50.0 or later. Register it in `Config.Plugins`: it adds template
+Requires collage v0.61.0 or later. Register it in `Config.Plugins`: it adds template
 functions, which only a plugin registered there can.
 
 ## In a template
@@ -62,7 +62,7 @@ back, so what the plugin adds is the only change: the rest of the page is served
 byte for byte as the templates wrote it.
 
 A page without placeholders still has its headings given ids, so any heading can
-be linked to; `ids: false` leaves such a page alone. A page with a placeholder
+be linked to; `noIDs: true` leaves such a page alone. A page with a placeholder
 always gets them, since its table of contents links to them.
 
 ### The placeholders cannot be forged
@@ -80,15 +80,16 @@ static or incremental page is read once, not once per reader.
 
 | Option | Default | |
 | --- | --- | --- |
-| `ids` | `true` | give headings ids on pages without placeholders too |
+| `noIDs` | `false` | give headings ids only on pages with a placeholder |
 | `minLevel`, `maxLevel` | `2`, `4` | the heading levels read; 1 to 6 |
 | `wpm` | `225` | reading speed, in words a minute |
-| `label` | `Table of contents` | the `<nav>`'s `aria-label` |
-| `readingTime` | `{n} min read` | the reading time; `{n}` is the minutes |
-| `locales` | | `label` and `readingTime` for a locale, by the page's locale |
+| `text.label` | `Table of contents` | the `<nav>`'s `aria-label` |
+| `text.readingTime` | `{n} min read` | the reading time; `{n}` is the minutes |
+| `locales` | | `label` and `readingTime` for a locale, by the page's locale; an empty one keeps `text`'s |
 
 ```go
 toc.New(toc.Options{
+	Text: toc.Text{Label: "Contents"},
 	Locales: map[string]toc.Text{
 		"tr": {Label: "İçindekiler", ReadingTime: "{n} dk okuma"},
 	},
@@ -100,12 +101,11 @@ toc.New(toc.Options{
 ```json
 {
   "elagoht/toc": {
-    "ids": true,
+    "noIDs": false,
     "minLevel": 2,
     "maxLevel": 4,
     "wpm": 225,
-    "label": "Table of contents",
-    "readingTime": "{n} min read",
+    "text": { "label": "Table of contents", "readingTime": "{n} min read" },
     "locales": {
       "tr": { "label": "İçindekiler", "readingTime": "{n} dk okuma" }
     }
@@ -114,7 +114,7 @@ toc.New(toc.Options{
 ```
 
 Levels outside 1 to 6 or reversed, a negative speed, and a `readingTime` without
-`{n}` stop `collage.New`.
+`{n}` stop the application at start.
 
 ## Limitations
 
@@ -126,3 +126,20 @@ Levels outside 1 to 6 or reversed, a negative speed, and a `readingTime` without
   the page hooks, so a placeholder in it is not replaced. Put `{{toc}}` in the page,
   not in a fragment refreshed on its own.
 - Headings a script adds after the page loads are not in the table of contents.
+
+## Changes
+
+### v0.2.0
+
+Changed in v0.2.0, for the v1 plugin conventions. A removed key now stops the
+application at start with `unknown key`, where it used to be ignored.
+
+| was | now |
+|---|---|
+| `"ids": false` / `Options.IDs *bool` | `"noIDs": true` / `Options.NoIDs bool` |
+| `"ids": true` | remove the key: it is the default |
+| `"label"` at the top level | `"text": {"label": …}` |
+| `"readingTime"` at the top level | `"text": {"readingTime": …}` |
+| `Text` embedded in `Options` (`opts.Label`) | `Options.Text` is a named field (`opts.Text.Label`) |
+
+- Requires collage v0.61.0 (it required v0.50.0).

@@ -41,9 +41,10 @@ const Name = "elagoht/toc"
 
 // Options configures the plugin.
 type Options struct {
-	// IDs gives headings ids on every page, not only on those with a
-	// placeholder, so any heading can be linked to. On by default.
-	IDs *bool `json:"ids"`
+	// NoIDs gives headings ids only on pages with a placeholder, which need
+	// them for the table of contents' links. By default every page's headings
+	// get ids, so any heading can be linked to.
+	NoIDs bool `json:"noIDs"`
 	// MinLevel and MaxLevel are the heading levels read. Default 2 and 4: the
 	// h1 is the page's title, and below h4 a table of contents is a list of
 	// everything.
@@ -51,10 +52,11 @@ type Options struct {
 	MaxLevel int `json:"maxLevel"`
 	// WPM is the reading speed, in words a minute. Default 225.
 	WPM int `json:"wpm"`
-	// Text is what the table of contents and the reading time say.
-	Text
-	// Locales replaces Text for a locale: {"tr": {Label: "İçindekiler",
-	// ReadingTime: "{n} dk okuma"}}. A field left empty keeps Text's.
+	// Text is what the table of contents and the reading time say, in the
+	// default locale and in any locale Locales does not cover.
+	Text Text `json:"text"`
+	// Locales replaces Text for a locale: {"tr": {"label": "İçindekiler",
+	// "readingTime": "{n} dk okuma"}}. A field left empty keeps Text's.
 	Locales map[string]Text `json:"locales"`
 }
 
@@ -71,7 +73,6 @@ type Text struct {
 // Plugin reads the headings.
 type Plugin struct {
 	opts       Options
-	ids        bool
 	tocMarker  []byte
 	timeMarker []byte
 }
@@ -89,7 +90,7 @@ var (
 func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
 func (p *Plugin) Name() string                   { return Name }
-func (p *Plugin) Version() string                { return "0.1.5" }
+func (p *Plugin) Version() string                { return "0.2.0" }
 func (p *Plugin) Shutdown(context.Context) error { return nil }
 
 // Configure reads the configuration and adds {{toc}} and {{readingTime}}.
@@ -99,7 +100,6 @@ func (p *Plugin) Configure(_ context.Context, host collage.ConfigHost) error {
 		return err
 	}
 	o := &p.opts
-	p.ids = o.IDs == nil || *o.IDs
 	if o.MinLevel == 0 {
 		o.MinLevel = 2
 	}
@@ -115,14 +115,14 @@ func (p *Plugin) Configure(_ context.Context, host collage.ConfigHost) error {
 	if o.WPM < 0 {
 		return fmt.Errorf("toc: wpm %d: a reading speed is positive", o.WPM)
 	}
-	if o.Label == "" {
-		o.Label = "Table of contents"
+	if o.Text.Label == "" {
+		o.Text.Label = "Table of contents"
 	}
-	if o.ReadingTime == "" {
-		o.ReadingTime = "{n} min read"
+	if o.Text.ReadingTime == "" {
+		o.Text.ReadingTime = "{n} min read"
 	}
-	if !strings.Contains(o.ReadingTime, "{n}") {
-		return fmt.Errorf("toc: readingTime %q has no {n} for the minutes", o.ReadingTime)
+	if !strings.Contains(o.Text.ReadingTime, "{n}") {
+		return fmt.Errorf("toc: text.readingTime %q has no {n} for the minutes", o.Text.ReadingTime)
 	}
 	for locale, text := range o.Locales {
 		if text.ReadingTime != "" && !strings.Contains(text.ReadingTime, "{n}") {
@@ -175,7 +175,7 @@ func (p *Plugin) text(locale string) Text {
 func (p *Plugin) OnAfterRender(_ context.Context, ev *collage.AfterRenderEvent) error {
 	hasToc := bytes.Contains(ev.HTML, p.tocMarker)
 	hasTime := bytes.Contains(ev.HTML, p.timeMarker)
-	if !hasToc && !hasTime && !p.ids {
+	if !hasToc && !hasTime && p.opts.NoIDs {
 		return nil
 	}
 	page := p.read(ev.HTML, ev.Locale)

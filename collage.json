@@ -32,13 +32,9 @@
     "type": "object",
     "description": "A collage plugin that gives a page's headings ids, and puts a table of contents and a reading time where the templates ask for them.",
     "properties": {
-      "ids": {
-        "type": "boolean",
-        "description": "IDs gives headings ids on every page, not only on those with a placeholder, so any heading can be linked to. On by default."
-      },
       "locales": {
         "type": "object",
-        "description": "Locales replaces Text for a locale: {\"tr\": {Label: \"İçindekiler\", ReadingTime: \"{n} dk okuma\"}}. A field left empty keeps Text's.",
+        "description": "Locales replaces Text for a locale: {\"tr\": {\"label\": \"İçindekiler\", \"readingTime\": \"{n} dk okuma\"}}. A field left empty keeps Text's.",
         "additionalProperties": {
           "type": "object",
           "properties": {
@@ -60,6 +56,25 @@
       "minLevel": {
         "type": "integer",
         "description": "MinLevel and MaxLevel are the heading levels read. Default 2 and 4: the h1 is the page's title, and below h4 a table of contents is a list of everything."
+      },
+      "noIDs": {
+        "type": "boolean",
+        "description": "NoIDs gives headings ids only on pages with a placeholder, which need them for the table of contents' links. By default every page's headings get ids, so any heading can be linked to."
+      },
+      "text": {
+        "type": "object",
+        "description": "Text is what the table of contents and the reading time say, in the default locale and in any locale Locales does not cover.",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label names the table of contents to assistive technology: the \u003cnav\u003e's aria-label. Default \"Table of contents\"."
+          },
+          "readingTime": {
+            "type": "string",
+            "description": "ReadingTime is the reading time, \"{n}\" standing for the minutes. Default \"{n} min read\"."
+          }
+        },
+        "additionalProperties": false
       },
       "wpm": {
         "type": "integer",
