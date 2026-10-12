@@ -229,7 +229,7 @@ func TestLevels(t *testing.T) {
 	}
 }
 
-func TestMisconfigurationStopsNew(t *testing.T) {
+func TestMisconfigurationStopsStart(t *testing.T) {
 	for name, opts := range map[string]toc.Options{
 		"levels reversed":        {MinLevel: 4, MaxLevel: 2},
 		"level 7":                {MaxLevel: 7},
